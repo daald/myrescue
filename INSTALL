@@ -1,0 +1,16 @@
+Installation procedure
+======================
+
+... is currently in a rather poor state.
+
+- Compile the binary
+  * Change to the src directory
+  * Type make
+
+- Install the binary
+  * Copy the myrescue binary to the destination location,
+    most probably /bin oder /sbin
+
+- Install the manpage
+
+That's all folks.
