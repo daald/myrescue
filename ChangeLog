@@ -1,3 +1,9 @@
+0.9.2
+	Added -R option to reverse reading direction
+	thanks to Holger Ohmacht <holger.ohmacht@web.de>
+	Added -f option to skip failed blocks
+	Synced german and english manpages
+	
 0.9.1
 	Added german translation of manpage;
 	thanks to Holger Ohmacht <holger.ohmacht@web.de>
