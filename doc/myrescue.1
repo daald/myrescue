@@ -1,4 +1,4 @@
-.\" $Header: /cvsroot/myrescue/doc/myrescue.1,v 1.4 2002/12/15 20:08:52 kristofk Exp $
+.\" $Header: /cvsroot/myrescue/doc/myrescue.1,v 1.5 2004/02/11 16:14:40 kristofk Exp $
 .TH MYRESCUE "1" "December 2002" "myrescue 0.9.0" "User Commands"
 .SH NAME
 myrescue \- Harddisc Rescue
@@ -50,9 +50,16 @@ definitely cannot afford a professional data recovery. Or in case
 you know what you are doing, e.g. if you know that it is the aging
 of the magnetisation layer that is causing your problem.
 .PP
+In any case do not expect too much. While complete restores have been
+witnessed, you should not take them for granted. A better attitude is
+to consider your data lost and be glad for any survivors that turn up.
+.PP
 The usual GPL disclaimer applies. Especially the NON-WARRANTY OF
 FITNESS FOR A PARTICULAR PURPOSE. Don't blame (or sue) me if it
 fails to recover or further damages your data.
+.PP
+And a final word you probably don't want to hear in this situation:
+For the future consider a routinely backup to avoid a "next time".
 .SH OPTIONS
 .TP
 .BI -b " block-size"
@@ -112,8 +119,10 @@ Repeat this with higher retry counts and wait for convergence.
 .IP \(bu
 Make a copy of the rescued data and run fsck on it.
 .IP \(bu
-Mount the filesystem (if copied to a file: via loopback) and
-clean up the mess in lost+found.
+Mount the filesystem (if copied to a file: via loopback) and check
+your data. If directory information has been destroyed, fsck moves
+unidentifiable file fragments to lost+found, so you should also check
+this location.
 .PP
 It may help to try reading non-defect areas in between to allow the
 drive to recalibrate.

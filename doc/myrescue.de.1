@@ -1,0 +1,165 @@
+.\" $Header: /cvsroot/myrescue/doc/myrescue.de.1,v 1.1 2004/02/11 16:14:40 kristofk Exp $
+.TH MYRESCUE "1" "December 2002" "myrescue 0.9.0" "User Commands"
+.SH NAME
+myrescue \- Festplattenrettungstool
+.SH SYNOPSIS
+.B myrescue 
+.RB [ -b
+.IR block-size ]
+.RB [ -B
+.IR bitmap-file ]
+.RB [ -S ]
+.RB [ -r
+.IR retry-count ]
+.RB [ -s
+.IR start-block ]
+.RB [ -e
+.IR end-block ]
+.I input-file
+.I output-file
+.SH BESCHREIBUNG
+myrescue ist kleines Tool, um nach einen Headcrash (d.h. wenn der Schreib-Lesekopf
+auf die Plattenoberflaeche aufschlaegt) auf der Festplatte
+die noch lesbaren Daten zu sichern. Es ist aequivalent zum Befehl
+dd_rescue, jedoch versucht MyRescue zuerst die unversehrten
+Daten zu retten, um dann erst die zerstoerten Bereiche zu bearbeiten. 
+.PP
+Technisch gesehen versucht das Programm, das Medium Blockweise in eine 
+Datei auf einer 
+.IB anderen (!) 
+Festplatte zu kopieren, wobei eine Tabelle (Blockbitmap) 
+erstellt wird, in der die erfolgreich gelesenen bzw. fehlerhaften Bloecke festgehalten
+werden. Diese Blockbitmap kann dann fuer nachfolgende Durchlaeufe wieder
+verwendet werden.
+.PP
+Zudem besitzt MyRescue einen speziellen Modus, um Lesefehler zu behandeln:
+Gewoehlicherweise sind bei einem Headcrash viele Bloecke (u. Umstaenden 
+mehrere Tausend) betroffen und damit defekt bzw. zerstoert. Versuchte man nun diese
+Bloecke weiterhin zu lesen, so wuerde man die Festplatte nur noch mehr
+zerstoeren, sogar bis hin zur Totalzerstoerung der gesamten Festplatte.
+.PP
+Mittels dem Skip-Modus werden nun diese Bloecke uebersprungen, so das
+vorerst keine weitere Zerstoerung mehr stattfindet. Hat man nun die noch
+lesbaren Daten gesichert, kann man dann (sofern man die Festplatte entbehren
+kann) diese defekten Bloecke bearbeiten.  
+.PP
+Abschliessend besitzt das Programm eine Option, um mehrfache Leseversuche
+auf defekte Bloecke zu starten, bevor sie als Zerstoert eingetragen werden.
+.SH HINWEIS
+.B DIESES TOOL IST KEIN (!) ERSATZ FUER PROFESSIONELLE DATENRETTUNG DURCH 
+.B DARAUF SPEZIALISIERTE FIRMEN
+.PP
+Haben Sie also die Moeglichkeit, eine solche Firma kostenguenstig 
+(da solche Dienstleistungen sehr kostspielig sind) zu engagieren, dann sollten 
+sie dies in Erwaegung ziehen. MyRescue ist nur fuer ganz Verzweifelte und 
+fuer Personen geeignet, die ganz genau wissen, was sie tun 
+(z.B. wenn man die phsyikalische Struktur kennt oder weiss, was z.B. der MasterBootRecord ist...)
+.PP
+Das Programm unterliegt der gewoehnlichen GNU PUBLIC LICENCE.
+.B INSBESONDERE SEI DARAUF HINGEWIESEN, DAS DER AUTOR KEINERLEI HAFTUNG
+.B FUER MISLUNGENE RETTUNGSVERSUCHE ODER ZERSTOERTE FESTPLATTEN UEBERNIMMT!  
+.SH OPTIONS
+.TP
+.BI -b " block-size"
+Die Groesse eines (Dateisystem-)Blocks in Bytes. Gewoehnlich
+sind Bloecke unter LINUX-EXT2 Dateisystem 1024, 2048 oder 4096
+(Defaultwert) Bytes gross.  
+.TP
+.BI -B " bitmap-file"
+Gibt den Namen der Bitmap-Datei an, die die Status aller Bloecke 
+beinhaltet. Wenn man die Datei mittels hexedit oder hexdump anschaut, 
+so bedeutet der Wert 01: OK, 00: Bis jetzt noch nicht bearbeitet. Negative
+Werte geben die Anzahl fehlgeschlagener Leseversuche an. 
+Gibt man keine Dateinamen an, so wird der Name output-file.bitmap verwendet.
+.TP
+.B -S
+Aktiviert den Skip-Modus: Wenn ein fehlerhafter Block entdeckt wird,
+so erhoeht sich die Schrittzahl exponentiell. solange bis wieder ein lesbarer
+Block gefunden wird.
+.TP
+.BI -r " retry-count"
+Gibt die Anzahl der Leseversuche an, bis ein Block als defekt eingetragen wird.
+Voreinstellung ist 1
+.TP
+.BI -s " start-block"
+Die Nummer des Startblocks, bei dem angefangen werden soll. Voreinstellung ist 0
+.TP
+.BI -e " end-block"
+Die Nummer des Endblocks, bis zu dem gelesen werden soll (wobei dieser nicht
+eingeschlossen ist). Voreinstellung ist: Groesse der
+.I input-file
+dividier durch die
+.IR block-size . 
+.TP
+.BR -h ", " -?
+Zeigt die Online-Hilfe an.
+.SH EMPFOHLENE VORGEHENSWEISE
+.PP
+Bevor man sich die Prozedur der Datenrettung antuen moechte ;-), sollte man 
+folgendes ueberdenken:
+.IP
+1. Der ganze Vorgang ist sehr langwierig (u. Umstaenden mehrere Stunden oder gar Tage!)
+und aeusserst nervenaufreibend...
+.IP
+2. Man braucht MINDESTENS eine zusaetzliche Festplatte oder ein genuegend
+grosses Medium (z.B. Streamer, ZIP-Laufwerk oder aehnliches). D.h.
+komplette Mediengroesse (z.B. bei einer 4 GB Partition eine ebenso grosser 
+freier Speicher auf der Sicherungsfestplatte) plus der Blockbitmap mit je 1 Byte
+pro Block. 
+.IP
+3. Man sollte nicht zuviel erwarten, d.h. eine komplette Restaurierung
+wird in den seltesten Faellen gelingen. Daher sollten Sie die Daten und Festplatte 
+vorerst als zerstoert ansehen!
+.IP
+4. Sollten Sie sich endlich mal eine geeignete Sicherungsstrategie fuer Ihre Daten
+ueberlegen, um so ein "naechstes Mal" in Sachen Datenrettung zu vermeiden...  
+.PP
+Nun gut, hat man sich dazu entschieden, so geht man wie folgt vor:  
+.IP \(bu
+Bestimmen Sie die Hardware(!)-Blockgroesse ihrer Festplatte 
+(generell eigentlich 512 Bytes). Dies kann mittels dem 
+Befehl hdparm oder ueber die Webseiten des Herstellers Ihrer
+Festplatte geschehen.
+.IP \(bu
+Starten Sie einen Durchlauf mit skip-modus und einem Leseversuch
+pro Block, um so die noch lesbaren Daten zu sichern.
+.IP \(bu
+Wiederholen Sie diesen Vorgangm, bis sich die Fehlerzahl nicht mehr aendert.
+Man sollte aufgrund der mechanischen Erwaermung der inneren Festplattenteile
+zwischen den Durchlaeufen immer ein bis zwei Stunden warten.
+.IP \(bu
+Nun versuchen Sie, mit einer hoeheren Zahl an Leseversuchen einen neuen Durchlauf
+starten.
+.IP \(bu
+Erstellen Sie wiederum eine Kopie der geretteten Daten und fuehren Sie ggfs.
+den Befehl fsck darauf aus. 
+.IP \(bu
+Mounten Sie das Dateisystem (falls in eine Datei kopiert: mittels loopback) und
+loeschen Sie den Datenmuell im Verzeichnis lost+found
+.PP
+Es hilft vielleicht, wenn man waehrend des Lesens von defekten Bloecken der
+Festplatte Zeit gibt, sich zu rekallibrieren.
+.PP
+Die Programmierer freuen sich, wenn alles glatt geht und sie von Ihnen und Ihren
+Erfahrungen hoeren, insbesondere im  
+.B Experiences
+-Forum auf der Sourceforge Project Seite. Vielen Dank!
+.SH BEKANNTE FEHLER
+Das Handling der 
+.I bitmap-file 
+liegt derzeit auf der Dateisystem-Semantik, so das, wenn
+.BR lseek (2)
+mit Werten groesser als die Datei aufgerufen wird, der Bereich
+bis dahin mit Nullen aufgefuellt wird.
+.SH AUTOREN
+Kristof Koehler <kristofk@users.sourceforge.net>,
+Peter Schlaile <schlaile@users.sourceforge.net>
+.SH UEBERSETZUNG
+Holger Ohmacht <holger.ohmacht@web.de>
+.SH ANDERE TOOLS
+.BR dd (1),
+.BR dd_rescue "(no manpage?)"
+.PP
+http://www.google.de/search?q=data+recovery
+.PP
+http://myrescue.sourceforge.net/

@@ -1,0 +1,74 @@
+<HTML>
+  <HEAD><TITLE>myrescue Harddisk Rescue</TITLE></HEAD>
+  <BODY>
+
+    <H1>myrescue harddisk rescue</H1>
+
+    <P>See also our <A
+    href="http://sourceforge.net/projects/myrescue/">Sourceforge
+    Project Page</A></P>
+
+    <H3>Description</H3>
+
+    <P>myrescue is a program to rescue the still-readable data from a
+    damaged harddisk. It is similiar in purpose to dd_rescue, but it
+    tries to quickly get out of damaged areas to first handle the not
+    yet damaged part of the disk and return later.</P>
+
+    <H3>Note:</H3>
+
+    <P><B>This tools is no replacement for a professional <A
+    href="http://www.google.de/search?q=data+recovery">data recovery
+    service</A>!</B> If you do have the latter option, don't even think of
+    using myrescue, as it may further damage your disk. This tool is
+    provided only for the case that you are absolutely desperate and
+    definitely cannot afford a professional data recovery. Or in case
+    you know what you are doing, e.g. if you know that it is the aging
+    of the magnetisation layer that is causing your problem.</P>
+    <P>The usual GPL disclaimer applies. Especially the NON-WARRANTY OF
+    FITNESS FOR A PARTICULAR PURPOSE. Don't blame (or sue) me if it
+    fails to recover or further damages your data.</P>
+
+    <H3>How it works</H3>
+
+    <P>The program tries to copy the device blockwise to a file and
+    keeps a table ("block bitmap") noting whether a block has been
+    successfully copied, not yet handled or has had errors. This block
+    bitmap can be used in successive runs to concentrate on the not yet
+    rescued blocks.</P>
+
+    <P>The program has a special skip mode to handle read
+    errors. Usually harddisk surface defects cover more than just one
+    block and continuous reading in defect areas can damage the surface,
+    the heads and (by permanent recalibration) the drive mechanics. If
+    this happens, the chances of rescuing the remaining undamaged data
+    drop dramatically. So in skip mode, myrescue tries to get out of
+    damaged areas quickly by exponentially increasing the stepsize. The
+    skipped blocks are marked as unhandled in the block bitmap and can
+    be retried later.</P>
+
+    <P>Finally, the program has an option to multiply try to read a
+    block before considering it damaged.</P>
+
+    <H3>Share your experiences</H3>
+    <P>The developers are glad to hear about your experiences. Please
+    post them to the <A
+    href="http://sourceforge.net/forum/forum.php?forum_id=235860">Experiences
+    forum</A>. Thank you!</P>
+
+    <H3>Status</H3>
+    <P>The (beta) release 0.9.1 can be downloaded from the
+    <A
+    href="http://sourceforge.net/project/showfiles.php?group_id=68256">Files</A>
+    Section on our Sourceforge Project Page.</P>
+    <P>The package still lacks 
+    <CODE>./configure && make && make install</CODE>-style installation</P>
+
+    <HR>
+    $Header: /cvsroot/myrescue/www/index.html,v 1.9 2004/02/11 16:42:02 kristofk Exp $
+    <HR>
+    <a href="http://sourceforge.net"><img
+    src="http://sourceforge.net/sflogo.php?group_id=68256&amp;type=1"
+    width="88" height="31" border="0" alt="SourceForge.net Logo"></a><BR>
+  </BODY>
+</HTML>
