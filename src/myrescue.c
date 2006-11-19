@@ -92,14 +92,26 @@ int copy_block( int src_fd, int dst_fd,
 
 	src_count = read(src_fd, buffer, block_size);
 	if (src_count != block_size) {
-		perror("src read failed");
-		return errno;
+		if (src_count == -1) {
+			perror("src read failed");
+			return errno;
+		} else {
+			fprintf(stderr,"short read: %d of %d\n",
+				src_count, block_size);
+			return -1;
+		}
 	}
 		
 	dst_count = write(dst_fd, buffer, block_size);
 	if (dst_count != block_size) {
-		perror("dst write failed");
-		return errno;
+		if (dst_count == -1) {
+			perror("dst write failed");
+			return errno;
+		} else {
+			fprintf(stderr,"short write: %d of %d\n",
+				dst_count, block_size);
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -130,7 +142,8 @@ void print_status ( long block, long start_block, long end_block,
 
 void do_copy ( int src_fd, int dst_fd, int bitmap_fd,
 	       int block_size, long start_block, long end_block,
-	       int retry_count, int skip, int skip_fail, int reverse,
+	       int retry_count, int abort_error, int skip, 
+	       int skip_fail, int reverse,
 	       unsigned char * buffer )
 {
 	long block_step = 1;
@@ -157,9 +170,10 @@ void do_copy ( int src_fd, int dst_fd, int bitmap_fd,
 				} else {
 					++bad_count;
 					poke_map(bitmap_fd, block, block_state-1);
-					if (skip) {
+					if (abort_error)
+						break;
+					if (skip)
 						block_step *= 2;
-					}
 				}
 			}
 		} else {
@@ -181,6 +195,7 @@ const char * usage =
 "options:\n"
 "-b <block-size>   block size in bytes, default: 4096\n"
 "-B <bitmap-file>  bitmap-file, default: <output-file>.bitmap\n"
+"-A                abort on error\n"
 "-S                skip errors (exponential-step)\n"
 "-f <number>       skip blocks with <number> or more failures\n"
 "-r <retry-count>  try up to <retry-count> reads per block, default: 1\n"
@@ -197,6 +212,7 @@ int main(int argc, char** argv)
 	char bitmap_suffix[] = ".bitmap" ;
 	
 	int block_size    = 4096 ;
+	int abort_error   = 0 ;
 	int skip          = 0 ;
 	int skip_fail     = 0 ;
 	int retry_count   = 1 ;
@@ -216,7 +232,7 @@ int main(int argc, char** argv)
 
 	/* options */
 
-        while ( (optc = getopt ( argc, argv, "b:B:Sf:r:s:e:Rh?" ) ) != -1 ) {
+        while ( (optc = getopt ( argc, argv, "b:B:ASf:r:s:e:Rh?" ) ) != -1 ) {
 		switch ( optc ) {
 		case 'b' :
 			block_size = atol(optarg);
@@ -228,6 +244,9 @@ int main(int argc, char** argv)
 			break ;
 		case 'B' :
 			bitmap_name = optarg;
+			break ;
+		case 'A' :
+			abort_error = 1 ;
 			break ;
 		case 'S' :
 			skip = 1 ;
@@ -346,7 +365,8 @@ int main(int argc, char** argv)
 	/* start the real job */
 	do_copy ( src_fd, dst_fd, bitmap_fd,
 		  block_size, start_block, end_block,
-		  retry_count, skip, skip_fail, reverse,
+		  retry_count, abort_error, skip, 
+		  skip_fail, reverse,
 		  buffer ) ;
 	return 0 ;
 }
