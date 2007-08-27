@@ -1,3 +1,8 @@
+0.9.4
+	Added options -F to skip around known bad regions 
+	and -G to concentrate around known good regions. 
+	Added option -J to randomly jump around.
+
 0.9.3
 	Fixed error handling of short reads
 	Added -A option to abort on first error

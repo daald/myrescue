@@ -1,4 +1,4 @@
-.\" $Header: /cvsroot/myrescue/doc/myrescue.de.1,v 1.3 2006/11/19 17:42:35 kristofk Exp $
+.\" $Header: /cvsroot/myrescue/doc/myrescue.de.1,v 1.4 2007/08/26 21:58:58 kristofk Exp $
 .TH MYRESCUE "8" "December 2004" "myrescue 0.9.2" "User Commands"
 .SH NAME
 myrescue \- Festplattenrettungstool
@@ -19,6 +19,12 @@ myrescue \- Festplattenrettungstool
 .RB [ -e
 .IR end-block ]
 .RB [ -R ]
+.RB [ -G
+.IR good-range ]
+.RB [ -F
+.IR failed-range ]
+.RB [ -J
+.IR jump-after-blocks ]
 .I input-file
 .I output-file
 .SH BESCHREIBUNG
@@ -107,6 +113,26 @@ Rueckwaerts lesen, d.h. von
 .I end-block
 (nicht eingeschlossen) bis
 .I start-block
+.TP
+.BI -G " good-range"
+Es werden nur Bloecke gelesen, die hoechstens
+.I good-range
+Bloecke von einem schon erfolgreich gelesenen Block entfernt liegen.
+.TP
+.BI -F " failed-range"
+Erweitert die Wirkung von -f: Es werden auch Bloecke uebersprungen,
+die bis zu
+.I failed-range
+Bloecke von einem laut -f zu ueberspringenden Block entfernt liegen.
+.TP
+.BI -J " jump-after-blocks"
+Jeweils nachdem
+.I jump-after-blocks
+Bloecke gelesen wurden, wird zufaellig zu einem anderen Block gesprungen. 
+Sinnvoll, um Platten mit verstreuten Defektbereichen zunaechst zu
+scannen. In diesem Modus bewirkt -S das Weiterspringen beim ersten
+Defekt oder beim Antreffen eines Blocks, der laut -f, -G or -F zu
+ueberspringen ist.
 .TP
 .BR -h ", " -?
 Zeigt die Online-Hilfe an.
