@@ -168,11 +168,12 @@ void print_status ( long block, long start_block, long end_block,
 
 void do_binsearch_run ( int src_fd, int dst_fd, int bitmap_fd,
 	       int block_size, long start_block, long end_block,
-	       int retry_count,
+	       int retry_count, int skip_fail,
 	       int good_range, int failed_range,
 	       long *ok_count, long *bad_count,
 	       unsigned char * buffer )
 {
+	long block ;
 	long middle_block ;
 	char block_state ;
 
@@ -184,60 +185,88 @@ void do_binsearch_run ( int src_fd, int dst_fd, int bitmap_fd,
 	//  a. recursively call do_binsearch for start_block..middle_block
 	//  b. recursively call do_binsearch for middle_block+1..end_block
 
-	// TODO check if end_block is inclusive or not
+	// TODO make sure end_block is non-inclusive everywhere
 
 	fprintf ( stderr,
 		  "\nchecking area (%09ld-%09ld)\n",
 		  start_block, end_block ) ;
 
 	while ( start_block < end_block ) {
-		print_status ( start_block, start_block, end_block,
-			       *ok_count, *bad_count ) ;
-		if ( try_block ( src_fd, dst_fd,
-				 start_block, block_size, retry_count,
-				 buffer ) ) {
-			++(*ok_count) ;
-			poke_map(bitmap_fd, start_block, 1);
-			++start_block;
+		block = start_block;
+		block_state = peek_map ( bitmap_fd, block ) ;
+		if ( (block_state <= 0) &&
+		     ( (skip_fail == 0) || (-block_state < skip_fail) ) &&
+		     check_block ( bitmap_fd, block,
+				   good_range, failed_range, skip_fail,
+				   start_block, end_block ) ) {
+			print_status ( block, start_block, end_block,
+				       *ok_count, *bad_count ) ;
+			if ( try_block ( src_fd, dst_fd,
+					 block, block_size, retry_count,
+					 buffer ) ) {
+				++(*ok_count) ;
+				poke_map(bitmap_fd, block, 1);
+				++start_block;
+			} else {
+				++(*bad_count);
+				poke_map(bitmap_fd, block, block_state-1);
+				break;
+			}
 		} else {
-			++(*bad_count);
-			block_state = peek_map ( bitmap_fd, start_block ) ;
-			poke_map(bitmap_fd, start_block, block_state-1);
-			break;
+			if ( block % 1000 == 0 ) {
+				print_status ( block, start_block, end_block,
+					       *ok_count, *bad_count ) ;
+			}
+			++start_block;
 		}
 	}
 
-	while ( start_block <= end_block ) {
-		print_status ( end_block, start_block, end_block,
-			       *ok_count, *bad_count ) ;
-		if ( try_block ( src_fd, dst_fd,
-				 end_block, block_size, retry_count,
-				 buffer ) ) {
-			++(*ok_count) ;
-			poke_map(bitmap_fd, end_block, 1);
-			--end_block;
+	while ( start_block < end_block ) {
+		block = end_block - 1;
+		block_state = peek_map ( bitmap_fd, block ) ;
+		if ( (block_state <= 0) &&
+		     ( (skip_fail == 0) || (-block_state < skip_fail) ) &&
+		     check_block ( bitmap_fd, block,
+				   good_range, failed_range, skip_fail,
+				   start_block, end_block ) ) {
+			print_status ( block, start_block, end_block,
+				       *ok_count, *bad_count ) ;
+			if ( try_block ( src_fd, dst_fd,
+					 block, block_size, retry_count,
+					 buffer ) ) {
+				++(*ok_count) ;
+				poke_map(bitmap_fd, block, 1);
+				--end_block;
+			} else {
+				++(*bad_count);
+				poke_map(bitmap_fd, block, block_state-1);
+				break;
+			}
 		} else {
-			++(*bad_count);
-			block_state = peek_map ( bitmap_fd, end_block ) ;
-			poke_map(bitmap_fd, end_block, block_state-1);
-			break;
+			if ( block % 1000 == 0 ) {
+				print_status ( block, start_block, end_block,
+					       *ok_count, *bad_count ) ;
+			}
+			--end_block;
 		}
 	}
+
+	// at this point, start_block and (end_block - 1) are already read (but failed)
 
 	middle_block = ( start_block + end_block ) / 2 ;
 
-	if ( start_block < middle_block )
+	if ( (start_block + 1) < middle_block )
 		do_binsearch_run ( src_fd, dst_fd, bitmap_fd,
-			  block_size, start_block, middle_block,
-			  retry_count,
+			  block_size, start_block + 1, middle_block,
+			  retry_count, skip_fail,
 			  good_range, failed_range,
 			  ok_count, bad_count,
 			  buffer ) ;
 
-	if ( middle_block < end_block )
+	if ( middle_block < (end_block - 1) )
 		do_binsearch_run ( src_fd, dst_fd, bitmap_fd,
-			  block_size, middle_block, end_block,
-			  retry_count,
+			  block_size, middle_block, end_block - 1,
+			  retry_count, skip_fail,
 			  good_range, failed_range,
 			  ok_count, bad_count,
 			  buffer ) ;
@@ -245,7 +274,7 @@ void do_binsearch_run ( int src_fd, int dst_fd, int bitmap_fd,
 
 void do_binsearch ( int src_fd, int dst_fd, int bitmap_fd,
 	       int block_size, long start_block, long end_block,
-	       int retry_count,
+	       int retry_count, int skip_fail,
 	       int good_range, int failed_range,
 	       unsigned char * buffer )
 {
@@ -253,7 +282,7 @@ void do_binsearch ( int src_fd, int dst_fd, int bitmap_fd,
 	long bad_count = 0 ;
 	do_binsearch_run ( src_fd, dst_fd, bitmap_fd,
 		  block_size, start_block, end_block,
-		  retry_count,
+		  retry_count, skip_fail,
 		  good_range, failed_range,
 		  &ok_count, &bad_count,
 		  buffer ) ;
@@ -462,7 +491,7 @@ int main(int argc, char** argv)
 
 	/* options */
 
-        while ( (optc = getopt ( argc, argv, "b:B:ASf:r:s:e:J:G:F:Rh?" ) ) != -1 ) {
+        while ( (optc = getopt ( argc, argv, "b:B:ASif:r:s:e:J:G:F:Rh?" ) ) != -1 ) {
 		switch ( optc ) {
 		case 'b' :
 			block_size = atol(optarg);
@@ -649,7 +678,7 @@ int main(int argc, char** argv)
 
 		do_binsearch ( src_fd, dst_fd, bitmap_fd,
 			  block_size, start_block, end_block,
-			  retry_count,
+			  retry_count, skip_fail,
 			  good_range, failed_range,
 			  buffer ) ;
 	} else if ( jump == 0 )
