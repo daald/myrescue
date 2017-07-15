@@ -166,6 +166,100 @@ void print_status ( long block, long start_block, long end_block,
 		  ok_count, bad_count ) ;
 }
 
+void do_binsearch_run ( int src_fd, int dst_fd, int bitmap_fd,
+	       int block_size, long start_block, long end_block,
+	       int retry_count,
+	       int good_range, int failed_range,
+	       long *ok_count, long *bad_count,
+	       unsigned char * buffer )
+{
+	long middle_block ;
+	char block_state ;
+
+	// 1.
+	//  a. increment start_block until first bad block
+	//  b. decrement end_block until first bad block
+	// 2. calculate middle_block
+	// 3.
+	//  a. recursively call do_binsearch for start_block..middle_block
+	//  b. recursively call do_binsearch for middle_block+1..end_block
+
+	// TODO check if end_block is inclusive or not
+
+	fprintf ( stderr,
+		  "\nchecking area (%09ld-%09ld)\n",
+		  start_block, end_block ) ;
+
+	while ( start_block < end_block ) {
+		print_status ( start_block, start_block, end_block,
+			       *ok_count, *bad_count ) ;
+		if ( try_block ( src_fd, dst_fd,
+				 start_block, block_size, retry_count,
+				 buffer ) ) {
+			++(*ok_count) ;
+			poke_map(bitmap_fd, start_block, 1);
+			++start_block;
+		} else {
+			++(*bad_count);
+			block_state = peek_map ( bitmap_fd, start_block ) ;
+			poke_map(bitmap_fd, start_block, block_state-1);
+			break;
+		}
+	}
+
+	while ( start_block <= end_block ) {
+		print_status ( end_block, start_block, end_block,
+			       *ok_count, *bad_count ) ;
+		if ( try_block ( src_fd, dst_fd,
+				 end_block, block_size, retry_count,
+				 buffer ) ) {
+			++(*ok_count) ;
+			poke_map(bitmap_fd, end_block, 1);
+			--end_block;
+		} else {
+			++(*bad_count);
+			block_state = peek_map ( bitmap_fd, end_block ) ;
+			poke_map(bitmap_fd, end_block, block_state-1);
+			break;
+		}
+	}
+
+	middle_block = ( start_block + end_block ) / 2 ;
+
+	if ( start_block < middle_block )
+		do_binsearch_run ( src_fd, dst_fd, bitmap_fd,
+			  block_size, start_block, middle_block,
+			  retry_count,
+			  good_range, failed_range,
+			  ok_count, bad_count,
+			  buffer ) ;
+
+	if ( middle_block < end_block )
+		do_binsearch_run ( src_fd, dst_fd, bitmap_fd,
+			  block_size, middle_block, end_block,
+			  retry_count,
+			  good_range, failed_range,
+			  ok_count, bad_count,
+			  buffer ) ;
+}
+
+void do_binsearch ( int src_fd, int dst_fd, int bitmap_fd,
+	       int block_size, long start_block, long end_block,
+	       int retry_count,
+	       int good_range, int failed_range,
+	       unsigned char * buffer )
+{
+	long ok_count = 0 ;
+	long bad_count = 0 ;
+	do_binsearch_run ( src_fd, dst_fd, bitmap_fd,
+		  block_size, start_block, end_block,
+		  retry_count,
+		  good_range, failed_range,
+		  &ok_count, &bad_count,
+		  buffer ) ;
+	fprintf ( stderr, "\n" ) ;
+}
+
 void do_copy ( int src_fd, int dst_fd, int bitmap_fd,
 	       int block_size, long start_block, long end_block,
 	       int retry_count, int abort_error, int skip, 
@@ -325,6 +419,7 @@ const char * usage =
 "-B <bitmap-file>  bitmap-file, default: <output-file>.bitmap\n"
 "-A                abort on error\n"
 "-S                skip errors (exponential-step)\n"
+"-i                binary search strategy\n"
 "-f <number>       skip blocks with <number> or more failures\n"
 "-r <retry-count>  try up to <retry-count> reads per block, default: 1\n"
 "-s <start-block>  start block number, default: 0\n"
@@ -344,6 +439,7 @@ int main(int argc, char** argv)
 	
 	int block_size    = 4096 ;
 	int abort_error   = 0 ;
+	int binsearch     = 0 ;
 	int skip          = 0 ;
 	int skip_fail     = 0 ;
 	int retry_count   = 1 ;
@@ -416,6 +512,9 @@ int main(int argc, char** argv)
 					optarg);
 				exit(-1);
 			}
+			break ;
+		case 'i' :
+			binsearch = 1 ;
 			break ;
 		case 'J' :
 			jump = atol(optarg);
@@ -521,7 +620,39 @@ int main(int argc, char** argv)
 	}
 
 	/* start the real job */
-	if ( jump == 0 )
+	if ( binsearch ) {
+		if ( jump ) {
+			fprintf ( stderr,
+				  "jump is not compatible with binsearch mode\n" ) ;
+			exit(-1) ;
+		}
+		if ( abort_error ) {
+			fprintf ( stderr,
+				  "abort_error is not compatible with binsearch mode\n" ) ;
+			exit(-1) ;
+		}
+		if ( skip ) {
+			fprintf ( stderr,
+				  "skip is not compatible with binsearch mode\n" ) ;
+			exit(-1) ;
+		}
+		if ( skip_fail ) {
+			fprintf ( stderr,
+				  "skip_fail is not compatible with binsearch mode\n" ) ;
+			exit(-1) ;
+		}
+		if ( reverse ) {
+			fprintf ( stderr,
+				  "reverse is not compatible with binsearch mode\n" ) ;
+			exit(-1) ;
+		}
+
+		do_binsearch ( src_fd, dst_fd, bitmap_fd,
+			  block_size, start_block, end_block,
+			  retry_count,
+			  good_range, failed_range,
+			  buffer ) ;
+	} else if ( jump == 0 )
 		do_copy ( src_fd, dst_fd, bitmap_fd,
 			  block_size, start_block, end_block,
 			  retry_count, abort_error, skip, 
