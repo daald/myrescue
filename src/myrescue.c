@@ -166,7 +166,7 @@ void print_status ( long block, long start_block, long end_block,
 		  ok_count, bad_count ) ;
 }
 
-void do_copy ( int src_fd, int dst_fd, int bitmap_fd,
+void do_copy ( int src_fd, int dst_fd, int bitmap_fd, int errmap_fd,
 	       int block_size, long start_block, long end_block,
 	       int retry_count, int abort_error, int skip, 
 	       int skip_fail, int reverse,
@@ -219,7 +219,7 @@ void do_copy ( int src_fd, int dst_fd, int bitmap_fd,
 	fprintf ( stderr, "\n" ) ;
 }
 
-int do_jump_run ( int src_fd, int dst_fd, int bitmap_fd,
+int do_jump_run ( int src_fd, int dst_fd, int bitmap_fd, int errmap_fd,
 		  int block_size, long start_block, long end_block,
 		  int retry_count, int abort_error, int skip, 
 		  int skip_fail, int jump,
@@ -267,7 +267,7 @@ int do_jump_run ( int src_fd, int dst_fd, int bitmap_fd,
 	return 1;
 }
 
-void do_jump ( int src_fd, int dst_fd, int bitmap_fd,
+void do_jump ( int src_fd, int dst_fd, int bitmap_fd, int errmap_fd,
 	       int block_size, long start_block, long end_block,
 	       int retry_count, int abort_error, int skip, 
 	       int skip_fail, int jump,
@@ -292,7 +292,7 @@ void do_jump ( int src_fd, int dst_fd, int bitmap_fd,
 			block += end_block - start_block;
 		block += start_block;
 		
-		if ( ! do_jump_run(src_fd, dst_fd, bitmap_fd,
+		if ( ! do_jump_run(src_fd, dst_fd, bitmap_fd, errmap_fd,
 				   block_size, start_block, end_block,
 				   retry_count, abort_error, skip, 
 				   skip_fail, jump,
@@ -303,7 +303,7 @@ void do_jump ( int src_fd, int dst_fd, int bitmap_fd,
 			if ( abort_error )
 				break;
 
-		if ( ! do_jump_run(src_fd, dst_fd, bitmap_fd,
+		if ( ! do_jump_run(src_fd, dst_fd, bitmap_fd, errmap_fd,
 				   block_size, start_block, end_block,
 				   retry_count, abort_error, skip, 
 				   skip_fail, jump,
@@ -323,6 +323,7 @@ const char * usage =
 "options:\n"
 "-b <block-size>   block size in bytes, default: 4096\n"
 "-B <bitmap-file>  bitmap-file, default: <output-file>.bitmap\n"
+"-E <error-bitmap-file>  error bitmap-file, eg: <output-file>.errors\n"
 "-A                abort on error\n"
 "-S                skip errors (exponential-step)\n"
 "-f <number>       skip blocks with <number> or more failures\n"
@@ -340,6 +341,7 @@ int main(int argc, char** argv)
 	char *src_name ;
 	char *dst_name ;
 	char *bitmap_name = NULL ;
+	char *errmap_name = NULL ;
 	char bitmap_suffix[] = ".bitmap" ;
 	
 	int block_size    = 4096 ;
@@ -359,6 +361,7 @@ int main(int argc, char** argv)
 	int dst_fd ;
 	int src_fd ;
 	int bitmap_fd ;
+	int errmap_fd = 0;
 
 	unsigned char* buffer ;
 
@@ -378,6 +381,9 @@ int main(int argc, char** argv)
 			break ;
 		case 'B' :
 			bitmap_name = optarg;
+			break ;
+		case 'E' :
+			errmap_name = optarg;
 			break ;
 		case 'A' :
 			abort_error = 1 ;
@@ -495,6 +501,14 @@ int main(int argc, char** argv)
 	if ( bitmap_fd < 0 ) {
 		perror ( "bitmap open failed" ) ;
 		exit(-1) ;
+	}
+
+	if ( errmap_name != NULL ) {
+		errmap_fd = open64(errmap_name, O_RDWR | O_CREAT, 0600);
+		if ( errmap_fd < 0 ) {
+			perror ( "errmap open failed" ) ;
+			exit(-1) ;
+		}
 	}
 
 	/* maximum block */
