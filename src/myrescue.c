@@ -97,7 +97,7 @@ int copy_block( int src_fd, int dst_fd,
 			perror("src read failed");
 			return errno;
 		} else {
-			fprintf(stderr,"short read: %d of %d\n",
+			fprintf(stderr,"short read: %ld of %d\n",
 				src_count, block_size);
 			return -1;
 		}
@@ -109,7 +109,7 @@ int copy_block( int src_fd, int dst_fd,
 			perror("dst write failed");
 			return errno;
 		} else {
-			fprintf(stderr,"short write: %d of %d\n",
+			fprintf(stderr,"short write: %ld of %d\n",
 				dst_count, block_size);
 			return -1;
 		}
