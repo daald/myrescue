@@ -221,7 +221,7 @@ void do_binsearch_run ( int src_fd, int dst_fd, int bitmap_fd,
 		}
 	}
 
-	while ( start_block < end_block ) {
+	while ( (start_block + 1) < end_block ) {
 		block = end_block - 1;
 		block_state = peek_map ( bitmap_fd, block ) ;
 		if ( (block_state <= 0) &&
