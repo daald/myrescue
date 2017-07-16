@@ -166,9 +166,18 @@ void print_status ( long block, long start_block, long end_block,
 		  ok_count, bad_count ) ;
 }
 
+struct copy_block {
+	long start_block;
+	long end_block;
+	int scan_start;
+	int scan_end;
+	int level;
+	struct copy_block *next;
+};
+
 void do_binsearch_run ( int src_fd, int dst_fd, int bitmap_fd,
 	       int block_size, long start_block, long end_block,
-	       int retry_count, int skip_fail,
+	       int retry_count, int skip_fail, int level, struct copy_block *queue_end,
 	       int good_range, int failed_range,
 	       long *ok_count, long *bad_count,
 	       unsigned char * buffer )
@@ -176,6 +185,7 @@ void do_binsearch_run ( int src_fd, int dst_fd, int bitmap_fd,
 	long block ;
 	long middle_block ;
 	char block_state ;
+	struct copy_block *node;
 
 	// 1.
 	//  a. increment start_block until first bad block
@@ -188,8 +198,8 @@ void do_binsearch_run ( int src_fd, int dst_fd, int bitmap_fd,
 	// TODO make sure end_block is non-inclusive everywhere
 
 	fprintf ( stderr,
-		  "\nchecking area (%09ld-%09ld)\n",
-		  start_block, end_block ) ;
+		  "(L%d) copying range %09ld-%09ld\n",
+		  level, start_block, end_block ) ;
 
 	while ( start_block < end_block ) {
 		block = start_block;
@@ -255,21 +265,45 @@ void do_binsearch_run ( int src_fd, int dst_fd, int bitmap_fd,
 
 	middle_block = ( start_block + end_block ) / 2 ;
 
-	if ( (start_block + 1) < middle_block )
-		do_binsearch_run ( src_fd, dst_fd, bitmap_fd,
-			  block_size, start_block + 1, middle_block,
-			  retry_count, skip_fail,
-			  good_range, failed_range,
-			  ok_count, bad_count,
-			  buffer ) ;
+	if ( (start_block + 1) < middle_block ) {
+		node = malloc( sizeof(struct copy_block) );
 
-	if ( middle_block < (end_block - 1) )
-		do_binsearch_run ( src_fd, dst_fd, bitmap_fd,
-			  block_size, middle_block, end_block - 1,
-			  retry_count, skip_fail,
-			  good_range, failed_range,
-			  ok_count, bad_count,
-			  buffer ) ;
+		node->start_block = start_block + 1;
+		node->end_block   = middle_block;
+		node->scan_start  = 0;
+		node->scan_end    = 1;
+		node->level       = level + 1;
+		node->next        = 0;
+		queue_end->next = node;
+		queue_end = node;
+
+		//do_binsearch_run ( src_fd, dst_fd, bitmap_fd,
+		//	  block_size, start_block + 1, middle_block,
+		//	  retry_count, skip_fail, level + 1, max_level - 1,
+		//	  good_range, failed_range,
+		//	  ok_count, bad_count,
+		//	  buffer ) ;
+	}
+
+	if ( middle_block < (end_block - 1) ) {
+		node = malloc( sizeof(struct copy_block) );
+
+		node->start_block = middle_block;
+		node->end_block   = end_block - 1;
+		node->scan_start  = 1;
+		node->scan_end    = 0;
+		node->level       = level + 1;
+		node->next        = 0;
+		queue_end->next = node;
+		queue_end = node;
+
+		//do_binsearch_run ( src_fd, dst_fd, bitmap_fd,
+		//	  block_size, middle_block, end_block - 1,
+		//	  retry_count, skip_fail, level + 1, max_level - 1,
+		//	  good_range, failed_range,
+		//	  ok_count, bad_count,
+		//	  buffer ) ;
+	}
 }
 
 void do_binsearch ( int src_fd, int dst_fd, int bitmap_fd,
@@ -280,13 +314,32 @@ void do_binsearch ( int src_fd, int dst_fd, int bitmap_fd,
 {
 	long ok_count = 0 ;
 	long bad_count = 0 ;
-	do_binsearch_run ( src_fd, dst_fd, bitmap_fd,
-		  block_size, start_block, end_block,
-		  retry_count, skip_fail,
-		  good_range, failed_range,
-		  &ok_count, &bad_count,
-		  buffer ) ;
-	fprintf ( stderr, "\n" ) ;
+	struct copy_block *root;
+	struct copy_block *queue_end;
+
+	root = malloc( sizeof(struct copy_block) );
+
+	root->start_block = start_block;
+	root->end_block   = end_block;
+	root->scan_start  = 1;
+	root->scan_end    = 1;
+	root->level       = 1;
+	root->next        = 0;
+	queue_end = root;
+
+	while ( root != 0 ) {
+		do_binsearch_run ( src_fd, dst_fd, bitmap_fd,
+			  block_size, root->start_block, root->end_block,
+			  retry_count, skip_fail, root->level, queue_end,
+			  good_range, failed_range,
+			  &ok_count, &bad_count,
+			  buffer ) ;
+		fprintf ( stderr, "\n" ) ;
+		root = root->next;
+		while ( queue_end->next ) {
+			queue_end = queue_end->next;
+		}
+	}
 }
 
 void do_copy ( int src_fd, int dst_fd, int bitmap_fd,
@@ -543,7 +596,7 @@ int main(int argc, char** argv)
 			}
 			break ;
 		case 'i' :
-			binsearch = 1 ;
+			binsearch = 1;
 			break ;
 		case 'J' :
 			jump = atol(optarg);
